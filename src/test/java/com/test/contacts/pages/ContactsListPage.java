@@ -19,6 +19,11 @@ public class ContactsListPage extends BasePage {
     // Tooltip shown only the first time: "Now you can find Settings and Help & feedback here"
     private final By settingsTooltip = byTextContains("Now you can find");
 
+    public ContactsListPage() {
+        waitForFirst(addContactLocators, Duration.ofSeconds(15), "Create contact (+)");
+        log.info("Contacts list is displayed");
+    }
+
     // Instant check (no waiting): only dismiss it if it is already on screen
     public ContactsListPage dismissTooltipIfPresent() {
         if (isPresent(settingsTooltip)) {
@@ -29,13 +34,18 @@ public class ContactsListPage extends BasePage {
     }
 
     public ContactFormPage tapAddContact() {
-        WebElement addButton = waitForFirst(addContactLocators, Duration.ofSeconds(15), "Create contact (+)");
-        if (isPresent(settingsTooltip)) {
-            dismissTooltipIfPresent();
-            addButton = waitForFirst(addContactLocators, Duration.ofSeconds(5), "Create contact (+)");
-        }
+        dismissTooltipIfPresent();
+        WebElement addButton = waitForFirst(addContactLocators, Duration.ofSeconds(5), "Create contact (+)");
         addButton.click();
-        log.info("Step 4: Tapped '+' (Create contact)");
+        log.info("Tapped '+' (Create contact)");
         return new ContactFormPage();
+    }
+
+    // Checks the contact appears in the list (scrolls if the list is long)
+    public boolean isContactDisplayed(String fullName) {
+        boolean ok = isDisplayed(byText(fullName), Duration.ofSeconds(5))
+                || isDisplayed(scrollToText(fullName), Duration.ofSeconds(5));
+        log.info("List check -> '{}' displayed: {}", fullName, ok);
+        return ok;
     }
 }

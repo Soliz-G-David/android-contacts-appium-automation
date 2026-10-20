@@ -1,6 +1,7 @@
 package com.test.contacts.pages;
 
 import io.appium.java_client.AppiumBy;
+import org.openqa.selenium.By;
 import org.openqa.selenium.WebElement;
 
 import java.time.Duration;
@@ -10,6 +11,12 @@ public class ContactDetailPage extends BasePage {
 
     private static final String CONTACT_INFO = "Contact info";
     private static final String ADDED_PREFIX = "Added ";
+
+    // Back arrow at the top-left of the detail screen
+    private final List<By> backArrowLocators = List.of(
+            byDescription("Navigate up"),
+            AppiumBy.androidUIAutomator("new UiSelector().descriptionMatches(\"(?i)(navigate up|back)\")")
+    );
 
     public ContactDetailPage() {
         waitForVisible(byText(CONTACT_INFO));
@@ -44,5 +51,18 @@ public class ContactDetailPage extends BasePage {
             }
         }
         return false;
+    }
+
+    // Tap the back arrow to return to the contacts list
+    public ContactsListPage goBackToList() {
+        WebElement backArrow = findFirst(backArrowLocators);
+        if (backArrow != null) {
+            backArrow.click();
+            log.info("Tapped back arrow");
+        } else {
+            driver.navigate().back();
+            log.info("Back arrow not found, used Android back button");
+        }
+        return new ContactsListPage();
     }
 }
