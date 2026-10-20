@@ -31,8 +31,15 @@ public class CreateContactTest extends BaseTest {
             "Davichin", "Gallagher", "CodeRoad", "777777777", "davichin90s@gmail.com");
     private static final String PROFILE_PICTURE = "src/test/resources/images/profile.jpg";
 
-    @Test(description = "Contacts flow: create 3 contacts, then search, add picture and update user 1")
-    public void shouldCreateAndUpdateContacts() {
+    // ---------- Test data: delete (contacts as they are after the update) ----------
+    private static final List<String> CONTACTS_TO_DELETE = List.of(
+            UPDATED.fullName(),
+            CONTACTS.get(1).fullName(),
+            CONTACTS.get(2).fullName()
+    );
+
+    @Test(description = "Contacts CRUD flow: create 3 contacts, search and update user 1 with picture, delete all")
+    public void shouldRunContactsCrudFlow() {
         SoftAssert softAssert = new SoftAssert();
 
         // Preparation: copy the profile picture to the emulator gallery
@@ -90,7 +97,6 @@ public class CreateContactTest extends BaseTest {
                 .updateContact(CONTACT_TO_UPDATE, UPDATED)
                 .save();
 
-        // Final assertions: updated data on detail page
         softAssert.assertTrue(detailPage.isTextDisplayed(UPDATED.fullName()),
                 "Update: new full name should be displayed");
         softAssert.assertTrue(detailPage.isTextDisplayed(UPDATED.company()),
@@ -102,9 +108,32 @@ public class CreateContactTest extends BaseTest {
         softAssert.assertTrue(detailPage.isTextNotDisplayed(CONTACT_TO_UPDATE.fullName()),
                 "Update: old name '" + CONTACT_TO_UPDATE.fullName() + "' should no longer be displayed");
 
+        log.info("RESULT: '{}' updated to '{}' with profile picture",
+                CONTACT_TO_UPDATE.fullName(), UPDATED.fullName());
+
+        // ===== DELETE: all contacts =====
+        log.info("========== DELETE all contacts ==========");
+
+        listPage = detailPage.returnToContactsList();
+
+        for (String name : CONTACTS_TO_DELETE) {
+            softAssert.assertTrue(listPage.isContactDisplayed(name),
+                    "Before delete: " + name + " should be in contacts list");
+        }
+
+        listPage.selectContacts(CONTACTS_TO_DELETE);
+        softAssert.assertTrue(listPage.isSelectedCountDisplayed(CONTACTS_TO_DELETE.size()),
+                "Delete: '" + CONTACTS_TO_DELETE.size() + " selected' should be displayed");
+
+        listPage.deleteSelectedContacts();
+
+        // Final assertion: the list is empty
+        softAssert.assertTrue(listPage.isNoContactsMessageDisplayed(),
+                "Delete: 'No contacts yet' should be displayed after deleting all contacts");
+
         softAssert.assertAll();
 
-        log.info("RESULT: {} contacts created and '{}' updated to '{}' with profile picture",
-                CONTACTS.size(), CONTACT_TO_UPDATE.fullName(), UPDATED.fullName());
+        log.info("RESULT: CRUD flow completed - {} contacts created, 1 updated, {} deleted",
+                CONTACTS.size(), CONTACTS_TO_DELETE.size());
     }
 }

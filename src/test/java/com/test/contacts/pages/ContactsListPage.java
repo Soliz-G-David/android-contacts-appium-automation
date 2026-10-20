@@ -3,9 +3,11 @@ package com.test.contacts.pages;
 import io.appium.java_client.AppiumBy;
 import org.openqa.selenium.By;
 import org.openqa.selenium.WebElement;
+import org.openqa.selenium.remote.RemoteWebElement;
 
 import java.time.Duration;
 import java.util.List;
+import java.util.Map;
 
 public class ContactsListPage extends BasePage {
 
@@ -28,6 +30,21 @@ public class ContactsListPage extends BasePage {
     // Tooltip shown only the first time: "Now you can find Settings and Help & feedback here"
     private final By settingsTooltip = byTextContains("Now you can find");
 
+    // Trash icon shown in selection mode
+    private final List<By> deleteIconLocators = List.of(
+            byDescription("Delete"),
+            AppiumBy.androidUIAutomator("new UiSelector().descriptionContains(\"Delete\")"),
+            AppiumBy.androidUIAutomator("new UiSelector().resourceIdMatches(\".*delete.*\")")
+    );
+
+    // 'Delete' button in the "Delete contacts" dialog
+    private final List<By> confirmDeleteLocators = List.of(
+            AppiumBy.androidUIAutomator("new UiSelector().className(\"android.widget.Button\").text(\"Delete\")"),
+            byText("Delete")
+    );
+
+    private final By noContactsMessage = byText("No contacts yet");
+
     public ContactsListPage() {
         waitForFirst(addContactLocators, Duration.ofSeconds(15), "Create contact (+)");
         log.info("Contacts list is displayed");
@@ -42,6 +59,8 @@ public class ContactsListPage extends BasePage {
         return this;
     }
 
+    // ---------- Create ----------
+
     public ContactFormPage tapAddContact() {
         dismissTooltipIfPresent();
         WebElement addButton = waitForFirst(addContactLocators, Duration.ofSeconds(5), "Create contact (+)");
@@ -49,6 +68,8 @@ public class ContactsListPage extends BasePage {
         log.info("Tapped '+' (Create contact)");
         return new ContactFormPage();
     }
+
+    // ---------- Read ----------
 
     // Checks the contact appears in the list (scrolls if the list is long)
     public boolean isContactDisplayed(String fullName) {
@@ -69,11 +90,56 @@ public class ContactsListPage extends BasePage {
         waitForVisible(searchInput).sendKeys(query);
         log.info("Typed '{}' in search", query);
 
-        By result = AppiumBy.androidUIAutomator(
-                "new UiSelector().className(\"android.widget.TextView\").text(\"" + fullName + "\")");
-        click(result);
+        click(contactItem(fullName));
         log.info("Opened search result '{}'", fullName);
 
         return new ContactDetailPage();
+    }
+
+    // ---------- Delete ----------
+
+    // Long press on the first contact to start selection, then tap the others
+    public ContactsListPage selectContacts(List<String> fullNames) {
+        WebElement first = waitForVisible(contactItem(fullNames.get(0)));
+        driver.executeScript("mobile: longClickGesture", Map.of(
+                "elementId", ((RemoteWebElement) first).getId(),
+                "duration", 1000));
+        log.info("Long press on '{}' (1 selected)", fullNames.get(0));
+
+        for (int i = 1; i < fullNames.size(); i++) {
+            click(contactItem(fullNames.get(i)));
+            log.info("Selected '{}' ({} selected)", fullNames.get(i), i + 1);
+        }
+        return this;
+    }
+
+    public boolean isSelectedCountDisplayed(int count) {
+        String expected = count + " selected";
+        boolean ok = isDisplayed(byText(expected), Duration.ofSeconds(5));
+        log.info("Selection check -> '{}' displayed: {}", expected, ok);
+        return ok;
+    }
+
+    // Trash icon -> "Delete contacts" dialog -> Delete
+    public ContactsListPage deleteSelectedContacts() {
+        waitForFirst(deleteIconLocators, Duration.ofSeconds(10), "Delete (trash icon)").click();
+        log.info("Tapped trash icon");
+
+        waitForFirst(confirmDeleteLocators, Duration.ofSeconds(10), "Delete (dialog button)").click();
+        log.info("Confirmed 'Delete' in dialog");
+        return this;
+    }
+
+    public boolean isNoContactsMessageDisplayed() {
+        boolean ok = isDisplayed(noContactsMessage, Duration.ofSeconds(10));
+        log.info("Empty list check -> 'No contacts yet' displayed: {}", ok);
+        return ok;
+    }
+
+    // ---------- helpers ----------
+
+    private By contactItem(String fullName) {
+        return AppiumBy.androidUIAutomator(
+                "new UiSelector().className(\"android.widget.TextView\").text(\"" + fullName + "\")");
     }
 }

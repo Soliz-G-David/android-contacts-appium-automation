@@ -2,6 +2,7 @@ package com.test.contacts.pages;
 
 import io.appium.java_client.AppiumBy;
 import org.openqa.selenium.By;
+import org.openqa.selenium.NoSuchElementException;
 import org.openqa.selenium.WebElement;
 
 import java.time.Duration;
@@ -11,6 +12,7 @@ public class ContactDetailPage extends BasePage {
 
     private static final String CONTACT_INFO = "Contact info";
     private static final String ADDED_PREFIX = "Added ";
+    private static final int MAX_BACK_PRESSES = 4;
 
     // Back arrow at the top-left of the detail screen
     private final List<By> backArrowLocators = List.of(
@@ -23,6 +25,10 @@ public class ContactDetailPage extends BasePage {
             byDescription("Edit contact"),
             AppiumBy.androidUIAutomator("new UiSelector().descriptionContains(\"Edit\")")
     );
+
+    // The full contacts list shows the empty "Search contacts" bar and the '+' button
+    private final By searchContactsBar = byText("Search contacts");
+    private final By addContactButton = byDescription("Create contact");
 
     public ContactDetailPage() {
         waitForVisible(byText(CONTACT_INFO));
@@ -74,16 +80,44 @@ public class ContactDetailPage extends BasePage {
         return new ContactFormPage();
     }
 
-    // Tap the back arrow to return to the contacts list
+    // One back: detail -> list (used right after creating a contact)
     public ContactsListPage goBackToList() {
+        pressBack();
+        return new ContactsListPage();
+    }
+
+    // Back as many times as needed (detail -> search results -> full list), never leaving the app
+    public ContactsListPage returnToContactsList() {
+        for (int i = 1; i <= MAX_BACK_PRESSES; i++) {
+            pressBack();
+            if (isFullListDisplayed(Duration.ofSeconds(3))) {
+                log.info("Back to full contacts list after {} back press(es)", i);
+                return new ContactsListPage();
+            }
+        }
+        throw new NoSuchElementException("Contacts list not reached after " + MAX_BACK_PRESSES + " back presses");
+    }
+
+    // ---------- helpers ----------
+
+    private void pressBack() {
         WebElement backArrow = findFirst(backArrowLocators);
         if (backArrow != null) {
             backArrow.click();
             log.info("Tapped back arrow");
         } else {
             driver.navigate().back();
-            log.info("Back arrow not found, used Android back button");
+            log.info("Used Android back button");
         }
-        return new ContactsListPage();
+    }
+
+    private boolean isFullListDisplayed(Duration timeout) {
+        long end = System.currentTimeMillis() + timeout.toMillis();
+        while (System.currentTimeMillis() < end) {
+            if (isPresent(searchContactsBar) && isPresent(addContactButton)) {
+                return true;
+            }
+        }
+        return false;
     }
 }
