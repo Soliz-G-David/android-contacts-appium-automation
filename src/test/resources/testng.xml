@@ -1,6 +1,6 @@
 <!DOCTYPE suite SYSTEM "https://testng.org/testng-1.0.dtd">
 <suite name="Android Contacts CRUD Suite" verbose="1">
-    <test name="TC-01 Create Contacts">
+    <test name="Contacts Flow: Create and Update">
         <classes>
             <class name="com.test.contacts.tests.CreateContactTest"/>
         </classes>

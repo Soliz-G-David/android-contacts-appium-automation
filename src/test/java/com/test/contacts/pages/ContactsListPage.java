@@ -16,6 +16,15 @@ public class ContactsListPage extends BasePage {
             AppiumBy.androidUIAutomator("new UiSelector().descriptionContains(\"Create\")")
     );
 
+    // "Search contacts" bar at the top of the list
+    private final List<By> searchBarLocators = List.of(
+            byText("Search contacts"),
+            AppiumBy.androidUIAutomator("new UiSelector().descriptionContains(\"Search contacts\")"),
+            AppiumBy.androidUIAutomator("new UiSelector().resourceIdMatches(\".*search.*\")")
+    );
+
+    private final By searchInput = AppiumBy.className("android.widget.EditText");
+
     // Tooltip shown only the first time: "Now you can find Settings and Help & feedback here"
     private final By settingsTooltip = byTextContains("Now you can find");
 
@@ -47,5 +56,24 @@ public class ContactsListPage extends BasePage {
                 || isDisplayed(scrollToText(fullName), Duration.ofSeconds(5));
         log.info("List check -> '{}' displayed: {}", fullName, ok);
         return ok;
+    }
+
+    // Search contacts -> type query -> open the matching contact
+    public ContactDetailPage searchAndOpenContact(String query, String fullName) {
+        dismissTooltipIfPresent();
+
+        WebElement searchBar = waitForFirst(searchBarLocators, Duration.ofSeconds(10), "Search contacts");
+        searchBar.click();
+        log.info("Tapped 'Search contacts'");
+
+        waitForVisible(searchInput).sendKeys(query);
+        log.info("Typed '{}' in search", query);
+
+        By result = AppiumBy.androidUIAutomator(
+                "new UiSelector().className(\"android.widget.TextView\").text(\"" + fullName + "\")");
+        click(result);
+        log.info("Opened search result '{}'", fullName);
+
+        return new ContactDetailPage();
     }
 }

@@ -18,6 +18,12 @@ public class ContactDetailPage extends BasePage {
             AppiumBy.androidUIAutomator("new UiSelector().descriptionMatches(\"(?i)(navigate up|back)\")")
     );
 
+    // Pencil icon at the top of the detail screen
+    private final List<By> editLocators = List.of(
+            byDescription("Edit contact"),
+            AppiumBy.androidUIAutomator("new UiSelector().descriptionContains(\"Edit\")")
+    );
+
     public ContactDetailPage() {
         waitForVisible(byText(CONTACT_INFO));
         log.info("Contact detail page is displayed");
@@ -28,6 +34,13 @@ public class ContactDetailPage extends BasePage {
             return true;
         }
         return isDisplayed(scrollToText(text), Duration.ofSeconds(5));
+    }
+
+    // Instant check: the text must not be on the screen
+    public boolean isTextNotDisplayed(String text) {
+        boolean absent = !isPresent(byText(text));
+        log.info("Absence check -> '{}' not displayed: {}", text, absent);
+        return absent;
     }
 
     // "Added Oct 20, 2026": proves the contact was created today (date taken from the emulator)
@@ -51,6 +64,14 @@ public class ContactDetailPage extends BasePage {
             }
         }
         return false;
+    }
+
+    // Tap the pencil icon to edit the contact
+    public ContactFormPage tapEdit() {
+        WebElement edit = waitForFirst(editLocators, Duration.ofSeconds(10), "Edit contact");
+        edit.click();
+        log.info("Tapped Edit contact (pencil)");
+        return new ContactFormPage();
     }
 
     // Tap the back arrow to return to the contacts list
