@@ -5,6 +5,7 @@ import com.test.contacts.models.Contact;
 import com.test.contacts.pages.ContactDetailPage;
 import com.test.contacts.pages.ContactsListPage;
 import com.test.contacts.pages.HomePage;
+import com.test.contacts.utils.DeviceFileHelper;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.testng.annotations.Test;
@@ -28,10 +29,14 @@ public class CreateContactTest extends BaseTest {
     private static final Contact CONTACT_TO_UPDATE = CONTACTS.get(0);
     private static final Contact UPDATED = new Contact(
             "Davichin", "Gallagher", "CodeRoad", "777777777", "davichin90s@gmail.com");
+    private static final String PROFILE_PICTURE = "src/test/resources/images/profile.jpg";
 
-    @Test(description = "Contacts flow: create 3 contacts, then search and update user 1")
+    @Test(description = "Contacts flow: create 3 contacts, then search, add picture and update user 1")
     public void shouldCreateAndUpdateContacts() {
         SoftAssert softAssert = new SoftAssert();
+
+        // Preparation: copy the profile picture to the emulator gallery
+        DeviceFileHelper.pushImageToGallery(PROFILE_PICTURE);
 
         // Home -> swipe up -> Contacts (only once)
         ContactsListPage listPage = new HomePage().openContactsApp();
@@ -70,8 +75,8 @@ public class CreateContactTest extends BaseTest {
                     "List check: " + contact.fullName() + " should be in contacts list");
         }
 
-        // ===== SEARCH and UPDATE: user 1 =====
-        log.info("========== SEARCH '{}' and UPDATE ==========", SEARCH_TEXT);
+        // ===== SEARCH, ADD PICTURE and UPDATE: user 1 =====
+        log.info("========== SEARCH '{}', ADD PICTURE and UPDATE ==========", SEARCH_TEXT);
 
         ContactDetailPage detailPage = listPage
                 .searchAndOpenContact(SEARCH_TEXT, CONTACT_TO_UPDATE.fullName());
@@ -81,6 +86,7 @@ public class CreateContactTest extends BaseTest {
 
         detailPage = detailPage
                 .tapEdit()
+                .addPictureFromGallery("profile.jpg")
                 .updateContact(CONTACT_TO_UPDATE, UPDATED)
                 .save();
 
@@ -98,7 +104,7 @@ public class CreateContactTest extends BaseTest {
 
         softAssert.assertAll();
 
-        log.info("RESULT: {} contacts created and '{}' updated to '{}'",
+        log.info("RESULT: {} contacts created and '{}' updated to '{}' with profile picture",
                 CONTACTS.size(), CONTACT_TO_UPDATE.fullName(), UPDATED.fullName());
     }
 }
