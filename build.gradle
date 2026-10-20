@@ -19,6 +19,7 @@ dependencies {
     testImplementation 'io.appium:java-client:10.0.0'
     testImplementation 'org.testng:testng:7.11.0'
     testImplementation 'org.slf4j:slf4j-simple:2.0.17'
+    testImplementation 'com.aventstack:extentreports:5.1.2'
 }
 
 test {
@@ -28,6 +29,6 @@ test {
     testLogging {
         events 'passed', 'failed', 'skipped'
         exceptionFormat 'full'
-        showStandardStreams = true
+        showStandardStreams = false
     }
 }

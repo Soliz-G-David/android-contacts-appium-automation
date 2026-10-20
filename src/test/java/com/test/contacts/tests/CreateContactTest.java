@@ -3,19 +3,20 @@ package com.test.contacts.tests;
 import com.test.contacts.base.BaseTest;
 import com.test.contacts.models.Contact;
 import com.test.contacts.pages.ContactDetailPage;
+import com.test.contacts.pages.ContactFormPage;
 import com.test.contacts.pages.ContactsListPage;
 import com.test.contacts.pages.HomePage;
 import com.test.contacts.utils.DeviceFileHelper;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import org.testng.Assert;
 import org.testng.annotations.Test;
 import org.testng.asserts.SoftAssert;
 
 import java.util.List;
 
-public class CreateContactTest extends BaseTest {
+import static com.test.contacts.utils.ReportHelper.attachScreenshot;
+import static com.test.contacts.utils.ReportHelper.step;
 
-    private static final Logger log = LoggerFactory.getLogger(CreateContactTest.class);
+public class CreateContactTest extends BaseTest {
 
     // ---------- Test data: create ----------
     private static final List<Contact> CONTACTS = List.of(
@@ -30,6 +31,7 @@ public class CreateContactTest extends BaseTest {
     private static final Contact UPDATED = new Contact(
             "Davichin", "Gallagher", "CodeRoad", "777777777", "davichin90s@gmail.com");
     private static final String PROFILE_PICTURE = "src/test/resources/images/profile.jpg";
+    private static final String PROFILE_PICTURE_NAME = "profile.jpg";
 
     // ---------- Test data: delete (contacts as they are after the update) ----------
     private static final List<String> CONTACTS_TO_DELETE = List.of(
@@ -38,102 +40,155 @@ public class CreateContactTest extends BaseTest {
             CONTACTS.get(2).fullName()
     );
 
-    @Test(description = "Contacts CRUD flow: create 3 contacts, search and update user 1 with picture, delete all")
-    public void shouldRunContactsCrudFlow() {
-        SoftAssert softAssert = new SoftAssert();
+    // ---------- Shared state: the flow continues from one test to the next ----------
+    private ContactsListPage listPage;
+    private ContactDetailPage detailPage;
+    private ContactFormPage formPage;
 
-        // Preparation: copy the profile picture to the emulator gallery
-        DeviceFileHelper.pushImageToGallery(PROFILE_PICTURE);
+    // ===================== CREATE =====================
 
-        // Home -> swipe up -> Contacts (only once)
-        ContactsListPage listPage = new HomePage().openContactsApp();
+    @Test(priority = 1, groups = "Create",
+            description = "TC-01: Create user 1 (David Soliz) and verify it in detail and list")
+    public void tc01_createFirstContact() {
+        step("Copy profile picture to the emulator gallery", () -> {
+            DeviceFileHelper.pushImageToGallery(PROFILE_PICTURE);
+        });
+        step("Open Contacts: Home > swipe up > Contacts", () -> {
+            listPage = new HomePage().openContactsApp();
+        });
+        createAndVerify(CONTACTS.get(0));
+    }
 
-        // ===== CREATE: users 1, 2 and 3 =====
-        for (int i = 0; i < CONTACTS.size(); i++) {
-            Contact contact = CONTACTS.get(i);
-            log.info("========== CREATE user {}: {} ==========", i + 1, contact.fullName());
+    @Test(priority = 2, groups = "Create", dependsOnMethods = "tc01_createFirstContact",
+            description = "TC-02: Create users 2 and 3 and verify all contacts in the list")
+    public void tc02_createAdditionalContacts() {
+        createAndVerify(CONTACTS.get(1));
+        createAndVerify(CONTACTS.get(2));
 
-            ContactDetailPage detailPage = listPage
+        step("Verify the 3 contacts are in the list", () -> {
+            attachScreenshot("Contacts list with 3 contacts");
+            SoftAssert softAssert = new SoftAssert();
+            for (Contact contact : CONTACTS) {
+                softAssert.assertTrue(listPage.isContactDisplayed(contact.fullName()),
+                        contact.fullName() + " should be in contacts list");
+            }
+            softAssert.assertAll();
+        });
+    }
+
+    // ===================== SEARCH =====================
+
+    @Test(priority = 3, groups = "Search", dependsOnMethods = "tc02_createAdditionalContacts",
+            description = "TC-03: Search contact by last name 'Soliz' and open it")
+    public void tc03_searchContact() {
+        step("Search '" + SEARCH_TEXT + "' and open " + CONTACT_TO_UPDATE.fullName(), () -> {
+            detailPage = listPage.searchAndOpenContact(SEARCH_TEXT, CONTACT_TO_UPDATE.fullName());
+        });
+        step("Verify the right contact was opened", () -> {
+            attachScreenshot("Search result opened");
+            Assert.assertTrue(detailPage.isTextDisplayed(CONTACT_TO_UPDATE.fullName()),
+                    "Search should open '" + CONTACT_TO_UPDATE.fullName() + "'");
+        });
+    }
+
+    // ===================== UPDATE =====================
+
+    @Test(priority = 4, groups = "Update", dependsOnMethods = "tc03_searchContact",
+            description = "TC-04: Update user 1 with profile picture and new data")
+    public void tc04_updateContactWithPicture() {
+        step("Tap Edit (pencil)", () -> {
+            formPage = detailPage.tapEdit();
+        });
+        step("Add profile picture: Add picture > Gallery > Recent > Choose", () -> {
+            formPage.addPictureFromGallery(PROFILE_PICTURE_NAME);
+            attachScreenshot("Edit contact with picture");
+        });
+        step("Update fields to " + UPDATED.fullName() + ", " + UPDATED.company()
+                + ", " + UPDATED.phone() + ", " + UPDATED.email(), () -> {
+            formPage.updateContact(CONTACT_TO_UPDATE, UPDATED);
+        });
+        step("Save", () -> {
+            detailPage = formPage.save();
+        });
+        step("Verify updated data on detail page", () -> {
+            attachScreenshot("Updated contact detail");
+            SoftAssert softAssert = new SoftAssert();
+            softAssert.assertTrue(detailPage.isTextDisplayed(UPDATED.fullName()),
+                    "New full name should be displayed");
+            softAssert.assertTrue(detailPage.isTextDisplayed(UPDATED.company()),
+                    "New company should be displayed");
+            softAssert.assertTrue(detailPage.isPhoneDisplayed(UPDATED.phone()),
+                    "New phone should be displayed");
+            softAssert.assertTrue(detailPage.isTextDisplayed(UPDATED.email()),
+                    "New email should be displayed");
+            softAssert.assertTrue(detailPage.isTextNotDisplayed(CONTACT_TO_UPDATE.fullName()),
+                    "Old name '" + CONTACT_TO_UPDATE.fullName() + "' should no longer be displayed");
+            softAssert.assertAll();
+        });
+    }
+
+    // ===================== DELETE =====================
+
+    @Test(priority = 5, groups = "Delete", dependsOnMethods = "tc04_updateContactWithPicture",
+            description = "TC-05: Delete all contacts and verify the list is empty")
+    public void tc05_deleteAllContacts() {
+        step("Back to the full contacts list", () -> {
+            listPage = detailPage.returnToContactsList();
+        });
+        step("Verify the 3 contacts before delete", () -> {
+            SoftAssert softAssert = new SoftAssert();
+            for (String name : CONTACTS_TO_DELETE) {
+                softAssert.assertTrue(listPage.isContactDisplayed(name),
+                        name + " should be in contacts list before delete");
+            }
+            softAssert.assertAll();
+        });
+        step("Select the 3 contacts (long press + tap)", () -> {
+            listPage.selectContacts(CONTACTS_TO_DELETE);
+            attachScreenshot("3 contacts selected");
+            Assert.assertTrue(listPage.isSelectedCountDisplayed(CONTACTS_TO_DELETE.size()),
+                    "'" + CONTACTS_TO_DELETE.size() + " selected' should be displayed");
+        });
+        step("Delete selected contacts (trash > Delete)", () -> {
+            listPage.deleteSelectedContacts();
+        });
+        step("Verify 'No contacts yet'", () -> {
+            attachScreenshot("Empty contacts list");
+            Assert.assertTrue(listPage.isNoContactsMessageDisplayed(),
+                    "'No contacts yet' should be displayed after deleting all contacts");
+        });
+    }
+
+    // ===================== helpers =====================
+
+    // Create -> verify detail (5 assertions) -> back to list -> verify in list
+    private void createAndVerify(Contact contact) {
+        step("Create contact: " + contact.fullName(), () -> {
+            detailPage = listPage
                     .tapAddContact()
                     .fillContactForm(contact)
                     .save();
-
+        });
+        step("Verify detail of " + contact.fullName()
+                + " (name, company, phone, email, creation date)", () -> {
+            attachScreenshot("Detail of " + contact.fullName());
+            SoftAssert softAssert = new SoftAssert();
             softAssert.assertTrue(detailPage.isTextDisplayed(contact.fullName()),
-                    contact.fullName() + ": full name should be displayed on detail page");
+                    "Full name should be displayed");
             softAssert.assertTrue(detailPage.isTextDisplayed(contact.company()),
-                    contact.fullName() + ": company should be displayed on detail page");
+                    "Company should be displayed");
             softAssert.assertTrue(detailPage.isPhoneDisplayed(contact.phone()),
-                    contact.fullName() + ": phone should be displayed on detail page");
+                    "Phone should be displayed");
             softAssert.assertTrue(detailPage.isTextDisplayed(contact.email()),
-                    contact.fullName() + ": email should be displayed on detail page");
+                    "Email should be displayed");
             softAssert.assertTrue(detailPage.isAddedToday(),
-                    contact.fullName() + ": should show today's creation date");
-
+                    "Today's creation date should be displayed");
+            softAssert.assertAll();
+        });
+        step("Back to list and verify " + contact.fullName(), () -> {
             listPage = detailPage.goBackToList();
-            softAssert.assertTrue(listPage.isContactDisplayed(contact.fullName()),
-                    contact.fullName() + ": should be displayed in contacts list");
-
-            log.info("RESULT: '{}' created and verified (detail + list)", contact.fullName());
-        }
-
-        log.info("========== CHECK: all contacts in list ==========");
-        for (Contact contact : CONTACTS) {
-            softAssert.assertTrue(listPage.isContactDisplayed(contact.fullName()),
-                    "List check: " + contact.fullName() + " should be in contacts list");
-        }
-
-        // ===== SEARCH, ADD PICTURE and UPDATE: user 1 =====
-        log.info("========== SEARCH '{}', ADD PICTURE and UPDATE ==========", SEARCH_TEXT);
-
-        ContactDetailPage detailPage = listPage
-                .searchAndOpenContact(SEARCH_TEXT, CONTACT_TO_UPDATE.fullName());
-
-        softAssert.assertTrue(detailPage.isTextDisplayed(CONTACT_TO_UPDATE.fullName()),
-                "Search should open '" + CONTACT_TO_UPDATE.fullName() + "'");
-
-        detailPage = detailPage
-                .tapEdit()
-                .addPictureFromGallery("profile.jpg")
-                .updateContact(CONTACT_TO_UPDATE, UPDATED)
-                .save();
-
-        softAssert.assertTrue(detailPage.isTextDisplayed(UPDATED.fullName()),
-                "Update: new full name should be displayed");
-        softAssert.assertTrue(detailPage.isTextDisplayed(UPDATED.company()),
-                "Update: new company should be displayed");
-        softAssert.assertTrue(detailPage.isPhoneDisplayed(UPDATED.phone()),
-                "Update: new phone should be displayed");
-        softAssert.assertTrue(detailPage.isTextDisplayed(UPDATED.email()),
-                "Update: new email should be displayed");
-        softAssert.assertTrue(detailPage.isTextNotDisplayed(CONTACT_TO_UPDATE.fullName()),
-                "Update: old name '" + CONTACT_TO_UPDATE.fullName() + "' should no longer be displayed");
-
-        log.info("RESULT: '{}' updated to '{}' with profile picture",
-                CONTACT_TO_UPDATE.fullName(), UPDATED.fullName());
-
-        // ===== DELETE: all contacts =====
-        log.info("========== DELETE all contacts ==========");
-
-        listPage = detailPage.returnToContactsList();
-
-        for (String name : CONTACTS_TO_DELETE) {
-            softAssert.assertTrue(listPage.isContactDisplayed(name),
-                    "Before delete: " + name + " should be in contacts list");
-        }
-
-        listPage.selectContacts(CONTACTS_TO_DELETE);
-        softAssert.assertTrue(listPage.isSelectedCountDisplayed(CONTACTS_TO_DELETE.size()),
-                "Delete: '" + CONTACTS_TO_DELETE.size() + " selected' should be displayed");
-
-        listPage.deleteSelectedContacts();
-
-        // Final assertion: the list is empty
-        softAssert.assertTrue(listPage.isNoContactsMessageDisplayed(),
-                "Delete: 'No contacts yet' should be displayed after deleting all contacts");
-
-        softAssert.assertAll();
-
-        log.info("RESULT: CRUD flow completed - {} contacts created, 1 updated, {} deleted",
-                CONTACTS.size(), CONTACTS_TO_DELETE.size());
+            Assert.assertTrue(listPage.isContactDisplayed(contact.fullName()),
+                    contact.fullName() + " should be displayed in contacts list");
+        });
     }
 }
