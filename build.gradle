@@ -2,7 +2,7 @@ plugins {
     id 'java'
 }
 
-group = 'com.davidsoliz.qa'
+group = 'com.test.contacts'
 version = '1.0-SNAPSHOT'
 
 java {
@@ -16,20 +16,18 @@ repositories {
 }
 
 dependencies {
-    // Appium (incluye Selenium)
     testImplementation 'io.appium:java-client:10.0.0'
-
-    // TestNG
     testImplementation 'org.testng:testng:7.11.0'
-
-    // Logs simples (evita el aviso de SLF4J en consola)
     testImplementation 'org.slf4j:slf4j-simple:2.0.17'
 }
 
 test {
-    useTestNG()
+    useTestNG {
+        suites 'src/test/resources/testng.xml'
+    }
     testLogging {
         events 'passed', 'failed', 'skipped'
+        exceptionFormat 'full'
         showStandardStreams = true
     }
 }
